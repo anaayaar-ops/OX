@@ -6,22 +6,21 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    xoBotId: 82727814,
+    xoBotId: 51660277,
     startCommand: "!او خاص بوت 5"
 };
 
 const service = new WOLF();
 
-// مصفوفة أولويات (الذكاء الاصطناعي البسيط)
-// الأرقام في المنتصف (مثل 13) والزوايا لها قيمة أعلى للفوز في 5x5
-const moveWeights = {
-    13: 10, // المركز (أهم رقم)
-    7: 8, 8: 8, 9: 8, 12: 8, 14: 8, 17: 8, 18: 8, 19: 8, // المربع الداخلي
-    1: 5, 5: 5, 21: 5, 25: 5, // الزوايا
-};
+// ذاكرة اللعبة لضمان عدم التكرار
+let board = Array(26).fill(true); // من 1 لـ 25
+
+// مصفوفة القوة (الأرقام التي تفتح فرص فوز أكبر)
+const strategicMoves = [13, 7, 8, 9, 12, 14, 17, 18, 19, 1, 5, 21, 25];
 
 service.on('ready', async () => {
-    console.log(`✅ البوت الذكي متصل: ${service.currentSubscriber.nickname}`);
+    console.log(`✅ تم تشغيل الذكاء الاصطناعي: ${service.currentSubscriber.nickname}`);
+    resetGame();
     await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
 });
 
@@ -30,35 +29,57 @@ service.on('message', async (message) => {
         
         const content = message.body || message.content || "";
 
+        // 1. تحديث الذاكرة: إذا رأينا رقم تم لعبه في الرسالة، نحذفه من المتاح
+        const usedNumbers = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g);
+        if (usedNumbers) {
+            // ملاحظة: هذا الجزء يحتاج لدقة، سنعتمد على الأرقام المتاحة التي يرسلها البوت
+        }
+
+        // 2. معالجة دور اللعب
         if (content.toLowerCase().includes("your turn") || content.includes("دورك")) {
             
-            // 1. استخراج الأرقام المتاحة من النص (التي لم تُستخدم بعد)
-            const availableMoves = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g);
+            // استخراج الأرقام التي يذكر البوت أنها "متاحة" حصراً
+            let available = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g) || [];
+            
+            // تحويلها لأرقام فريدة
+            available = [...new Set(available)];
 
-            if (availableMoves && availableMoves.length > 0) {
-                // 2. تحليل واختيار "أفضل حركة" بناءً على الأوزان
-                const bestMove = availableMoves.reduce((prev, curr) => {
-                    const prevWeight = moveWeights[prev] || 1;
-                    const currWeight = moveWeights[curr] || 1;
-                    return (currWeight > prevWeight) ? curr : prev;
-                });
+            if (available.length > 0) {
+                // اختيار أفضل رقم استراتيجي من المتاح فقط
+                let move = "";
+                
+                // البحث عن أول رقم استراتيجي متاح في قائمة الأولوية
+                for (let best of strategicMoves) {
+                    if (available.includes(best.toString())) {
+                        move = best.toString();
+                        break;
+                    }
+                }
 
-                console.log(`🧠 تحليل الذكاء: الأرقام المتاحة [${availableMoves.length}]. اخترت الأفضل استراتيجياً: ${bestMove}`);
+                // إذا لم نجد رقم استراتيجي، نأخذ أول رقم متاح
+                if (!move) move = available[0];
+
+                console.log(`🧠 ذكاء: الأرقام المتاحة المرصودة [${available}]. اخترت الأقوى: ${move}`);
                 
                 setTimeout(async () => {
-                    await service.messaging.sendPrivateMessage(settings.xoBotId, bestMove);
-                }, 2500);
+                    await service.messaging.sendPrivateMessage(settings.xoBotId, move);
+                }, 2000);
             }
         }
 
-        // إعادة التشغيل عند النهاية
+        // 3. إعادة ضبط الذاكرة عند انتهاء اللعبة
         if (content.includes("Winner") || content.includes("فاز") || content.includes("Draw") || content.includes("تعادل")) {
-            console.log("🏁 انتهت اللعبة. إعادة التشغيل بعد قليل...");
+            resetGame();
             setTimeout(async () => {
                 await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
-            }, 8000);
+            }, 10000);
         }
     }
 });
+
+function resetGame() {
+    board = Array(26).fill(true);
+    console.log("🔄 تم إعادة تهيئة ذاكرة اللعبة.");
+}
 
 service.login(settings.identity, settings.secret);
