@@ -6,7 +6,7 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    xoBotId: 51660277,
+    xoBotId: 82727814,
     startCommand: "!او خاص بوت 5"
 };
 
