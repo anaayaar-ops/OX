@@ -12,42 +12,51 @@ const settings = {
 
 const service = new WOLF();
 
+// مصفوفة أولويات (الذكاء الاصطناعي البسيط)
+// الأرقام في المنتصف (مثل 13) والزوايا لها قيمة أعلى للفوز في 5x5
+const moveWeights = {
+    13: 10, // المركز (أهم رقم)
+    7: 8, 8: 8, 9: 8, 12: 8, 14: 8, 17: 8, 18: 8, 19: 8, // المربع الداخلي
+    1: 5, 5: 5, 21: 5, 25: 5, // الزوايا
+};
+
 service.on('ready', async () => {
-    console.log(`✅ تم تشغيل البوت بنجاح: ${service.currentSubscriber.nickname}`);
-    // بدء اللعبة
+    console.log(`✅ البوت الذكي متصل: ${service.currentSubscriber.nickname}`);
     await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
 });
 
 service.on('message', async (message) => {
-    // التأكد من أن الرسالة خاصة ومن بوت الألعاب
     if (!message.isGroup && message.sourceSubscriberId === settings.xoBotId) {
         
         const content = message.body || message.content || "";
-        
-        // التحقق من أن الدور لنا
+
         if (content.toLowerCase().includes("your turn") || content.includes("دورك")) {
             
-            // استخراج الأرقام المتوفرة من 1 إلى 25 من نص الرسالة
-            // البوت عادة يرسل الأرقام المتاحة في وصف الصورة أو النص
+            // 1. استخراج الأرقام المتاحة من النص (التي لم تُستخدم بعد)
             const availableMoves = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g);
 
             if (availableMoves && availableMoves.length > 0) {
-                // استراتيجية بسيطة: اختيار الرقم الأقرب للمنتصف (13) لزيادة فرص الفوز
-                const bestMove = availableMoves.includes("13") ? "13" : availableMoves[0];
+                // 2. تحليل واختيار "أفضل حركة" بناءً على الأوزان
+                const bestMove = availableMoves.reduce((prev, curr) => {
+                    const prevWeight = moveWeights[prev] || 1;
+                    const currWeight = moveWeights[curr] || 1;
+                    return (currWeight > prevWeight) ? curr : prev;
+                });
+
+                console.log(`🧠 تحليل الذكاء: الأرقام المتاحة [${availableMoves.length}]. اخترت الأفضل استراتيجياً: ${bestMove}`);
                 
                 setTimeout(async () => {
                     await service.messaging.sendPrivateMessage(settings.xoBotId, bestMove);
-                    console.log(`🎯 لعبت الرقم: ${bestMove}`);
-                }, 3000); // انتظار 3 ثوانٍ ليبدو اللعب طبيعياً
+                }, 2500);
             }
         }
 
-        // إعادة تشغيل اللعبة عند النهاية
-        if (content.includes("Winner") || content.includes("فاز") || content.includes("Draw")) {
-            console.log("🏁 اللعبة انتهت، إعادة التشغيل...");
+        // إعادة التشغيل عند النهاية
+        if (content.includes("Winner") || content.includes("فاز") || content.includes("Draw") || content.includes("تعادل")) {
+            console.log("🏁 انتهت اللعبة. إعادة التشغيل بعد قليل...");
             setTimeout(async () => {
                 await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
-            }, 10000);
+            }, 8000);
         }
     }
 });
