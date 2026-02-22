@@ -1,48 +1,42 @@
 import axios from 'axios';
 
-// قائمة العضويات للفحص
-const groupIds = [66266, 11500, 117372223344]; 
+const id = 66266; // الروم الذي سنفحصه كعينة
+const url = `https://www.wolf.live/g/${id}`;
 
-async function getGroupDetails() {
-    console.log("🔍 جاري الفحص واستخراج بيانات المالك (نظام المسح الشامل)...\n");
-
-    for (const id of groupIds) {
-        const url = `https://www.wolf.live/g/${id}`;
-        
-        try {
-            const response = await axios.get(url, {
-                // منع التوجيه التلقائي لصفحات الخطأ
-                maxRedirects: 0,
-                validateStatus: (status) => status === 200,
-                headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
-                }
-            });
-
-            const html = response.data;
-
-            // استخراج البيانات باستخدام Regex يبحث عن الأنماط داخل JSON المدمج في الصفحة
-            const ownerMatch = html.match(/"ownerId"\s*:\s*(\d+)/);
-            const nameMatch = html.match(/"name"\s*:\s*"([^"]+)"/);
-
-            if (ownerMatch || nameMatch) {
-                console.log(`------------------------------------------`);
-                console.log(`✅ الروم: ${id}`);
-                console.log(`📝 الاسم: ${nameMatch ? nameMatch[1] : "غير متوفر"}`);
-                console.log(`👑 آيدي المالك: ${ownerMatch ? ownerMatch[1] : "مخفي أو غير معروف"}`);
-                console.log(`------------------------------------------`);
-            } else {
-                console.log(`❌ الروم: ${id} | موجود ولكن البيانات مشفرة أو مخفية`);
+async function debugRoom() {
+    console.log(`🔎 جاري فحص محتوى الصفحة للروم: ${id}...`);
+    
+    try {
+        const response = await axios.get(url, {
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
             }
+        });
 
-        } catch (error) {
-            // إذا أعطى كود 302 أو 404 أو فشل الطلب
-            console.log(`❌ الروم: ${id} | غير موجود`);
+        console.log("✅ تم استلام رد من السيرفر!");
+        console.log(`📡 كود الحالة: ${response.status}`);
+        
+        const html = response.data;
+        
+        console.log("\n--- بداية محتوى الصفحة (أول 1000 حرف) ---");
+        console.log(html.substring(0, 1000));
+        console.log("--- نهاية العينة ---\n");
+
+        // فحص وجود كلمة ownerId في كامل الصفحة
+        const hasOwner = html.includes("ownerId");
+        console.log(`❓ هل كلمة 'ownerId' موجودة في الصفحة؟ ${hasOwner ? "نعم ✅" : "لا ❌"}`);
+
+    } catch (error) {
+        console.error("❌ فشل الطلب:");
+        if (error.response) {
+            console.log(`خطأ من السيرفر: ${error.response.status}`);
+            console.log(error.response.data.substring(0, 500));
+        } else {
+            console.log(`خطأ في الاتصال: ${error.message}`);
         }
     }
-
-    console.log("\n✨ انتهى الفحص.");
 }
 
-getGroupDetails();
+debugRoom();
