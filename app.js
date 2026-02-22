@@ -9,49 +9,48 @@ const settings = {
     targetRoomId: 66266
 };
 
-const client = new WOLF();
+const service = new WOLF();
 
-client.on('ready', async () => {
-    console.log(`✅ متصل باسم: ${client.currentSubscriber.nickname}`);
+service.on('ready', async () => {
+    console.log(`✅ متصل باسم: ${service.currentSubscriber.nickname}`);
     
+    // محاولة الانضمام للروم لضمان استقبال الرسائل
     try {
-        // خطوة جوهرية: الاشتراك في الروم لاستقبال أحداث الرسائل
-        await client.groups.subscribe(settings.targetRoomId);
-        console.log(`📡 تم الاشتراك في الروم ${settings.targetRoomId} لاستقبال الرسائل...`);
-    } catch (err) {
-        console.error(`❌ فشل الاشتراك في الروم: ${err.message}`);
+        await service.groups.join(settings.targetRoomId);
+        console.log(`📍 البوت الآن متواجد في الروم: ${settings.targetRoomId}`);
+    } catch (e) {
+        console.log(`⚠️ تنبيه: قد يكون البوت داخل الروم مسبقاً.`);
     }
 });
 
-// استخدام event 'groupMessage' مباشرة لضمان الالتقاط
-client.on('groupMessage', async (message) => {
-    
-    // التحقق من رقم الروم
-    if (message.targetSubscriberId === settings.targetRoomId) {
-        
-        // استخراج النص وتوحيده
-        const content = (message.body || "").toString();
-        console.log(`📩 رسالة من الروم: ${content}`);
+service.on('message', async (message) => {
+    // طباعة كل رسالة تصل للتأكد من القراءة (لأغراض الفحص)
+    console.log(`📩 رسالة مستلمة من [${message.targetId}]: ${message.body}`);
 
-        // فحص النص (دعم كل الصيغ المحتملة للكلمة)
-        if (content.includes("اكتب") && (content.includes("الان") || content.includes("الآن"))) {
+    // التأكد من أن الرسالة من الروم المطلوب
+    if (message.targetId == settings.targetRoomId) {
+        
+        const content = message.body || "";
+
+        // فحص وجود الكلمات المطلوبة
+        if (content.includes("اكتب") && content.includes("الان")) {
             
             // استخراج الثواني
             const match = content.match(/(\d+)/);
             const seconds = match ? parseInt(match[0]) : 5;
 
-            console.log(`⏳ تم الرصد! سأنتظر ${seconds} ثوانٍ ثم أرسل...`);
+            console.log(`🎯 هدف مرصود! سأرسل بعد ${seconds} ثوانٍ...`);
 
             setTimeout(async () => {
                 try {
-                    await client.messaging.sendGroupMessage(settings.targetRoomId, "الان");
-                    console.log(`🚀 تم الإرسال بنجاح!`);
-                } catch (error) {
-                    console.error(`❌ فشل في الإرسال: ${error.message}`);
+                    await service.messaging.sendGroupMessage(settings.targetRoomId, "الان");
+                    console.log(`🚀 تم إرسال "الان" بنجاح.`);
+                } catch (err) {
+                    console.error(`❌ فشل الإرسال: ${err.message}`);
                 }
             }, seconds * 1000);
         }
     }
 });
 
-client.login(settings.identity, settings.secret);
+service.login(settings.identity, settings.secret);
