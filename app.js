@@ -6,37 +6,46 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    gateB: parseInt(process.env.EXIT_P), // رقم الروم المستهدف
-    action: "الان" 
+    gateB: parseInt(process.env.EXIT_P),
+    action: "الان",
+    // ⬇️ هذا الرقم يخصم 180 مللي ثانية ليعوض تأخير الـ 0.16 التي ظهرت لك
+    // يمكنك رفعه قليلاً (مثلاً لـ 200) إذا استمر التأخير بسيطاً
+    offset: 180 
 };
 
 const service = new WOLF();
 
 service.on('ready', () => {
-    console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
+    console.log(`✅ بوت المسابقات جاهز: ${service.currentSubscriber.nickname}`);
+    console.log(`⏱️ معوض التأخير الحالي: ${settings.offset}ms`);
 });
 
 service.on('groupMessage', async (message) => {
     const text = message.content || message.body || "";
 
-    // الشرط الذي كنت تستخدمه لمراقبة النص
+    // التحقق من رسالة المسابقة
     if (text.includes("اكتب {الان} بعد مرور") && text.includes("ثانية للفوز!")) {
         
-        // استخراج الثواني بنفس الطريقة التي استخدمناها يوم الأربعاء
+        // استخراج الرقم (مثلاً 5 ثواني)
         const match = text.match(/\d+/);
         const waitSeconds = match ? parseInt(match[0]) : 5; 
         
-        console.log(`🎯 رصد رسالة المسابقة. انتظار ${waitSeconds} ثانية...`);
+        // حساب الوقت الصافي بدقة: (الثواني * 1000) - معوض التأخير
+        const finalWait = (waitSeconds * 1000) - settings.offset;
 
-        // استخدام setTimeout كما في كودك القديم
+        console.log(`🎯 رصد المسابقة: ${waitSeconds} ثانية.`);
+        console.log(`⏳ جاري الانتظار لمدة: ${finalWait}ms (بعد خصم التأخير)`);
+
+        // تنفيذ الانتظار والحساب
         setTimeout(async () => {
             try {
+                // الإرسال فوراً
                 await service.messaging.sendGroupMessage(message.targetGroupId, settings.action);
-                console.log(`🚀 تم إرسال [${settings.action}] بعد انتهاء الوقت.`);
+                console.log(`🚀 تم الإرسال الآن!`);
             } catch (err) {
-                console.error("❌ فشل في الإرسال:", err.message);
+                console.error("❌ فشل الإرسال السريع:", err.message);
             }
-        }, waitSeconds * 1000);
+        }, finalWait);
     }
 });
 
