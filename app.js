@@ -1,40 +1,46 @@
-import axios from 'axios';
-import fs from 'fs'; // مكتبة النظام لحفظ الملفات
+import puppeteer from 'puppeteer';
 
-const roomId = 66266; // الرقم الذي تريد فحص صفحته
-const url = `https://www.wolf.live/g/${roomId}`;
-
-async function saveFullHTML() {
-    console.log(`📡 جاري سحب الصفحة الكاملة للروم: ${roomId}...`);
+async function getOwnerWithBrowser(roomId) {
+    console.log(`🌐 جاري فتح المتصفح لفحص الروم: ${roomId}...`);
+    
+    // تشغيل متصفح خفي
+    const browser = await puppeteer.launch({ headless: "new" });
+    const page = await browser.newPage();
 
     try {
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            }
+        // الذهاب للرابط والانتظار حتى يتم تحميل الشبكة بالكامل
+        await page.goto(`https://www.wolf.live/g/${roomId}`, {
+            waitUntil: 'networkidle2', 
+            timeout: 60000
         });
 
-        const html = response.data;
+        console.log("⏳ جاري تحليل البيانات بعد تشغيل الجافا سكريبت...");
 
-        // 1. حفظ الصفحة في ملف لتتمكن من فحصها بدقة
-        fs.writeFileSync('room_page.html', html);
-        console.log("💾 تم حفظ الصفحة بنجاح في ملف: room_page.html");
+        // استخراج البيانات من داخل "الذاكرة" التي صنعها المتصفح
+        const data = await page.evaluate(() => {
+            // البحث في كائن التخزين الخاص بالموقع
+            return window.__INITIAL_STATE__ || "لم يتم العثور على كائن البيانات";
+        });
 
-        // 2. طباعة الكود في الشاشة (قد يكون طويلاً جداً)
-        console.log("\n--- بداية كود HTML ---");
-        console.log(html);
-        console.log("--- نهاية كود HTML ---\n");
+        // إذا لم نجد الكائن، سنبحث عن أي نص يحتوي على معرف المالك في الصفحة
+        const bodyText = await page.content();
+        const ownerMatch = bodyText.match(/"ownerId"\s*:\s*(\d+)/);
 
-        // 3. فحص سريع لوجود أي أرقام تشبه الآيدي (مكونة من 7-8 أرقام)
-        const possibleIds = html.match(/\b\d{7,9}\b/g);
-        if (possibleIds) {
-            console.log("🧐 أرقام قد تكون آيديات تم العثور عليها:", [...new Set(possibleIds)]);
+        if (ownerMatch) {
+            console.log(`------------------------------------------`);
+            console.log(`✅ تم العثور على الهدف للروم: ${roomId}`);
+            console.log(`👑 آيدي المالك: ${ownerMatch[1]}`);
+            console.log(`------------------------------------------`);
+        } else {
+            console.log("❌ تعذر العثور على آيدي المالك. قد يتطلب الموقع تسجيل دخول لرؤية هذه التفاصيل حالياً.");
         }
 
     } catch (error) {
-        console.error("❌ فشل جلب الصفحة:", error.message);
+        console.error("❌ حدث خطأ أثناء التحميل:", error.message);
+    } finally {
+        await browser.close();
+        console.log("      إغلاق المتصفح.");
     }
 }
 
-saveFullHTML();
+getOwnerWithBrowser(66266);
