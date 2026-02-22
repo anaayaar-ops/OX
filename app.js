@@ -1,52 +1,41 @@
-import 'dotenv/config';
-import wolfjs from 'wolf.js';
+import axios from 'axios';
 
-const { WOLF } = wolfjs;
+// قائمة العضويات (الرومات) التي تريد البحث عنها
+const groupIds = [66266, 782837277777];
 
-const settings = {
-    identity: process.env.U_MAIL,
-    secret: process.env.U_PASS,
-    targetRoomId: 66266 // رقم الروم الخاص بك
-};
+async function checkGroups() {
+    console.log("🔍 جاري فحص الرومات...\n");
+    console.log("---------------------------------");
 
-const service = new WOLF();
-
-service.on('ready', async () => {
-    console.log(`✅ البوت يعمل باسم: ${service.currentSubscriber.nickname}`);
-    console.log(`🔒 وضع الحماية: يتم مراقبة الروم ${settings.targetRoomId} فقط.`);
-});
-
-service.on('message', async (message) => {
-    // استخراج معرف الروم بشكل صحيح وتحويله لرقم للمقارنة
-    const roomId = message.targetId || message.targetSubscriberId;
-
-    // الفلترة: إذا كان رقم الروم لا يطابق رومك، تجاهل الرسالة فوراً
-    if (parseInt(roomId) !== settings.targetRoomId) {
-        return; 
-    }
-
-    const content = message.body || "";
-    console.log(`📩 رسالة من رومك المحددة: ${content}`);
-
-    // فحص محتوى الرسالة (اكتب {الان} بعد مرور X ثانية)
-    if (content.includes("اكتب") && (content.includes("الان") || content.includes("الآن"))) {
+    for (const id of groupIds) {
+        const url = `https://www.wolf.live/g/${id}`;
         
-        // استخراج عدد الثواني
-        const match = content.match(/(\d+)/);
-        const seconds = match ? parseInt(match[0]) : 5;
+        try {
+            // نحاول الوصول للرابط
+            const response = await axios.get(url, {
+                timeout: 5000,
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
 
-        console.log(`🎯 هدف مرصود! الانتظار لمدة ${seconds} ثانية...`);
-
-        setTimeout(async () => {
-            try {
-                // إرسال الكلمة في الروم المحددة فقط
-                await service.messaging.sendGroupMessage(settings.targetRoomId, "الان");
-                console.log(`🚀 تم الإرسال بنجاح في روم ${settings.targetRoomId}`);
-            } catch (err) {
-                console.error(`❌ خطأ أثناء الإرسال: ${err.message}`);
+            // إذا نجح الرد، يعني الروم موجود
+            if (response.status === 200) {
+                console.log(`✅ الروم: ${id} | موجود ☑️`);
             }
-        }, seconds * 1000);
-    }
-});
 
-service.login(settings.identity, settings.secret);
+        } catch (error) {
+            // إذا أعطى خطأ 404 أو لم يجد الصفحة، يعني غير موجود
+            if (error.response && error.response.status === 404) {
+                console.log(`❌ الروم: ${id} | غير موجود`);
+            } else {
+                // في حال وجود حماية أو خطأ بالاتصال
+                console.log(`⚠️ الروم: ${id} | تعذر الفحص (ربما محمي أو خطأ اتصال)`);
+            }
+        }
+    }
+
+    console.log("---------------------------------");
+    console.log("✅ انتهى الفحص.");
+}
+
+// تشغيل الفحص
+checkGroups();
