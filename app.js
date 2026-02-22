@@ -6,39 +6,44 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    targetRoomId: 66266 // رقم الروم الخاص بك
+    targetRoomId: 66266 // رقم الروم
 };
 
 const service = new WOLF();
 
 service.on('ready', () => {
-    console.log(`✅ البوت متصل باسم: ${service.currentSubscriber.nickname}`);
-    console.log(`👀 مراقبة الروم رقم: ${settings.targetRoomId}`);
+    console.log(`✅ البوت متصل: ${service.currentSubscriber.nickname}`);
+    console.log(`👀 أراقب الروم: ${settings.targetRoomId} الآن...`);
 });
 
 service.on('message', async (message) => {
-    // التأكد أن الرسالة قادمة من الروم المطلوبة
-    if (message.isGroup && message.targetSubscriberId === settings.targetRoomId) {
+    // التأكد من أن الرسالة في الروم المطلوب
+    if (message.targetSubscriberId === settings.targetRoomId) {
         
-        const content = message.body || "";
+        // استخراج النص بذكاء (دعم أكثر من صيغة للمكتبة)
+        const content = message.body || message.content || (message.embed && message.embed.title) || "";
+        
+        // عرض ما يراه البوت في الكونسول للتأكد
+        if (content.length > 0) {
+            console.log(`📩 رسالة جديدة: [${content}]`);
+        }
 
-        // البحث عن الجملة المطلوبة
-        if (content.includes("اكتب {الان}")) {
+        // التحقق من وجود الكلمة المفتاحية (استخدام RegExp لجعلها أكثر مرونة)
+        if (content.includes("اكتب") && content.includes("الان")) {
             
-            // استخراج الثواني ديناميكياً
-            const match = content.match(/(\d+)/);
-            const seconds = match ? parseInt(match[0]) : 5;
+            // استخراج الثواني
+            const secondsMatch = content.match(/(\d+)/);
+            const seconds = secondsMatch ? parseInt(secondsMatch[0]) : 5;
 
-            console.log(`🎯 تم رصد الطلب! سأنتظر ${seconds} ثوانٍ...`);
+            console.log(`🎯 تم العثور على المطلوب! الانتظار: ${seconds} ثوانٍ...`);
 
-            // تنفيذ الانتظار
             setTimeout(async () => {
                 try {
-                    // نستخدم المعرف المباشر للروم لتجنب خطأ undefined
+                    // إرسال الكلمة
                     await service.messaging.sendGroupMessage(settings.targetRoomId, "الان");
-                    console.log(`🚀 تم إرسال "الان" بنجاح في الروم ${settings.targetRoomId}`);
-                } catch (error) {
-                    console.error("❌ فشل في الإرسال:", error.message);
+                    console.log(`🚀 تم الإرسال بنجاح!`);
+                } catch (err) {
+                    console.error(`❌ خطأ أثناء الإرسال: ${err.message}`);
                 }
             }, seconds * 1000);
         }
