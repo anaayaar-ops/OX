@@ -1,46 +1,43 @@
-import puppeteer from 'puppeteer';
+import 'dotenv/config';
+import wolfjs from 'wolf.js';
 
-async function getOwnerWithBrowser(roomId) {
-    console.log(`🌐 جاري فتح المتصفح لفحص الروم: ${roomId}...`);
-    
-    // تشغيل متصفح خفي
-    const browser = await puppeteer.launch({ headless: "new" });
-    const page = await browser.newPage();
+const { WOLF } = wolfjs;
 
-    try {
-        // الذهاب للرابط والانتظار حتى يتم تحميل الشبكة بالكامل
-        await page.goto(`https://www.wolf.live/g/${roomId}`, {
-            waitUntil: 'networkidle2', 
-            timeout: 60000
-        });
+const settings = {
+    identity: process.env.U_MAIL,
+    secret: process.env.U_PASS,
+    gateB: parseInt(process.env.EXIT_P), // رقم الروم المستهدف
+    action: "الان" 
+};
 
-        console.log("⏳ جاري تحليل البيانات بعد تشغيل الجافا سكريبت...");
+const service = new WOLF();
 
-        // استخراج البيانات من داخل "الذاكرة" التي صنعها المتصفح
-        const data = await page.evaluate(() => {
-            // البحث في كائن التخزين الخاص بالموقع
-            return window.__INITIAL_STATE__ || "لم يتم العثور على كائن البيانات";
-        });
+service.on('ready', () => {
+    console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
+});
 
-        // إذا لم نجد الكائن، سنبحث عن أي نص يحتوي على معرف المالك في الصفحة
-        const bodyText = await page.content();
-        const ownerMatch = bodyText.match(/"ownerId"\s*:\s*(\d+)/);
+service.on('groupMessage', async (message) => {
+    const text = message.content || message.body || "";
 
-        if (ownerMatch) {
-            console.log(`------------------------------------------`);
-            console.log(`✅ تم العثور على الهدف للروم: ${roomId}`);
-            console.log(`👑 آيدي المالك: ${ownerMatch[1]}`);
-            console.log(`------------------------------------------`);
-        } else {
-            console.log("❌ تعذر العثور على آيدي المالك. قد يتطلب الموقع تسجيل دخول لرؤية هذه التفاصيل حالياً.");
-        }
+    // الشرط الذي كنت تستخدمه لمراقبة النص
+    if (text.includes("اكتب {الان} بعد مرور") && text.includes("ثانية للفوز!")) {
+        
+        // استخراج الثواني بنفس الطريقة التي استخدمناها يوم الأربعاء
+        const match = text.match(/\d+/);
+        const waitSeconds = match ? parseInt(match[0]) : 5; 
+        
+        console.log(`🎯 رصد رسالة المسابقة. انتظار ${waitSeconds} ثانية...`);
 
-    } catch (error) {
-        console.error("❌ حدث خطأ أثناء التحميل:", error.message);
-    } finally {
-        await browser.close();
-        console.log("      إغلاق المتصفح.");
+        // استخدام setTimeout كما في كودك القديم
+        setTimeout(async () => {
+            try {
+                await service.messaging.sendGroupMessage(message.targetGroupId, settings.action);
+                console.log(`🚀 تم إرسال [${settings.action}] بعد انتهاء الوقت.`);
+            } catch (err) {
+                console.error("❌ فشل في الإرسال:", err.message);
+            }
+        }, waitSeconds * 1000);
     }
-}
+});
 
-getOwnerWithBrowser(66266);
+service.login(settings.identity, settings.secret);
