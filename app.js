@@ -9,53 +9,49 @@ const settings = {
     targetRoomId: 66266
 };
 
-const service = new WOLF();
+const client = new WOLF();
 
-service.on('ready', () => {
-    console.log(`✅ متصل باسم: ${service.currentSubscriber.nickname}`);
-    console.log(`🔎 أراقب الروم: ${settings.targetRoomId}`);
+client.on('ready', async () => {
+    console.log(`✅ متصل باسم: ${client.currentSubscriber.nickname}`);
+    
+    try {
+        // خطوة جوهرية: الاشتراك في الروم لاستقبال أحداث الرسائل
+        await client.groups.subscribe(settings.targetRoomId);
+        console.log(`📡 تم الاشتراك في الروم ${settings.targetRoomId} لاستقبال الرسائل...`);
+    } catch (err) {
+        console.error(`❌ فشل الاشتراك في الروم: ${err.message}`);
+    }
 });
 
-service.on('message', async (message) => {
-    // 1. طباعة المعرفات للتأكد من مطابقة الروم
-    // console.log(`Incoming from: ${message.targetSubscriberId}`); 
-
-    if (parseInt(message.targetSubscriberId) === settings.targetRoomId) {
+// استخدام event 'groupMessage' مباشرة لضمان الالتقاط
+client.on('groupMessage', async (message) => {
+    
+    // التحقق من رقم الروم
+    if (message.targetSubscriberId === settings.targetRoomId) {
         
-        // 2. محاولة استخراج النص من كل الأماكن الممكنة
-        let content = "";
+        // استخراج النص وتوحيده
+        const content = (message.body || "").toString();
+        console.log(`📩 رسالة من الروم: ${content}`);
 
-        if (message.body) content = message.body;
-        else if (message.embed && message.embed.title) content = message.embed.title;
-        else if (message.embed && message.embed.description) content = message.embed.description;
-        else if (message.attachments && message.attachments.length > 0) {
-            // بعض البوتات ترسل النص كمرفق (Attachment)
-            content = JSON.stringify(message.attachments);
-        }
-
-        // تحويل المحتوى لنص عادي وتجاهل التشكيل والهمزات قدر الإمكان
-        const cleanContent = content.toString().toLowerCase();
-
-        console.log(`📩 نص تم رصده: [${cleanContent}]`);
-
-        // 3. فحص الكلمات المفتاحية
-        if (cleanContent.includes("اكتب") && (cleanContent.includes("الان") || cleanContent.includes("الآن"))) {
+        // فحص النص (دعم كل الصيغ المحتملة للكلمة)
+        if (content.includes("اكتب") && (content.includes("الان") || content.includes("الآن"))) {
             
-            const match = cleanContent.match(/(\d+)/);
-            const seconds = match ? parseInt(match[1] || match[0]) : 5;
+            // استخراج الثواني
+            const match = content.match(/(\d+)/);
+            const seconds = match ? parseInt(match[0]) : 5;
 
-            console.log(`🚀 هدف مرصود! سأرسل بعد ${seconds} ثوانٍ...`);
+            console.log(`⏳ تم الرصد! سأنتظر ${seconds} ثوانٍ ثم أرسل...`);
 
             setTimeout(async () => {
                 try {
-                    await service.messaging.sendGroupMessage(settings.targetRoomId, "الان");
-                    console.log(`✅ تم الإرسال بنجاح.`);
-                } catch (e) {
-                    console.error(`❌ فشل الإرسال: ${e.message}`);
+                    await client.messaging.sendGroupMessage(settings.targetRoomId, "الان");
+                    console.log(`🚀 تم الإرسال بنجاح!`);
+                } catch (error) {
+                    console.error(`❌ فشل في الإرسال: ${error.message}`);
                 }
             }, seconds * 1000);
         }
     }
 });
 
-service.login(settings.identity, settings.secret);
+client.login(settings.identity, settings.secret);
