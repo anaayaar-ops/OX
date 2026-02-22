@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 // قائمة العضويات للفحص
-const groupIds = [66266, 117372223344]; 
+const groupIds = [66266, 117372223344, 11500]; 
 
-async function searchGroups() {
-    console.log("🚀 بدء عملية البحث الدقيق عن الرومات...\n");
+async function getGroupDetails() {
+    console.log("🔍 جاري فحص الرومات واستخراج بيانات المالك...\n");
+    console.log("------------------------------------------");
 
     for (const id of groupIds) {
         const url = `https://www.wolf.live/g/${id}`;
@@ -12,32 +13,37 @@ async function searchGroups() {
         try {
             const response = await axios.get(url, {
                 headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0 Safari/537.36' 
                 }
             });
 
             const html = response.data;
 
-            // الفحص الدقيق: 
-            // 1. إذا وجد جملة "Channel not found"
-            // 2. أو إذا كان العنوان الافتراضي للصفحة لا يحتوي على اسم الروم
-            const isNotFound = html.includes("Channel not found") || 
-                               html.includes("<title>WOLF</title>") || 
-                               !html.includes("og:title");
-
-            if (isNotFound) {
+            // التحقق أولاً من وجود الروم
+            if (html.includes("Channel not found") || html.includes("<title>WOLF</title>")) {
                 console.log(`❌ الروم: ${id} | غير موجود`);
-            } else {
-                console.log(`✅ الروم: ${id} | موجود ☑️`);
+                continue;
             }
 
+            // استخراج آيدي المالك باستخدام Regex من البيانات المخفية في الصفحة
+            // نبحث عن نمط "ownerId":12345
+            const ownerMatch = html.match(/"ownerId":\s*(\d+)/);
+            const nameMatch = html.match(/"name":\s*"([^"]+)"/);
+
+            const ownerId = ownerMatch ? ownerMatch[1] : "غير معروف";
+            const roomName = nameMatch ? nameMatch[1] : "بدون اسم";
+
+            console.log(`✅ الروم: ${id}`);
+            console.log(`   📝 الاسم: ${roomName}`);
+            console.log(`   👑 آيدي المالك: ${ownerId} ☑️`);
+            console.log("------------------------------------------");
+
         } catch (error) {
-            // إذا أعطى الموقع خطأ 404 مباشرة
-            console.log(`❌ الروم: ${id} | غير موجود`);
+            console.log(`❌ الروم: ${id} | غير موجود أو حدث خطأ في الاتصال`);
         }
     }
 
     console.log("\n✨ انتهى الفحص.");
 }
 
-searchGroups();
+getGroupDetails();
