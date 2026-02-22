@@ -6,80 +6,45 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    xoBotId: 82727814,
-    startCommand: "!او خاص بوت 5"
+    // معرف الروم التي تريد مراقبتها (اختياري للفلترة)
+     targetGroupId: 66266
 };
 
 const service = new WOLF();
 
-// ذاكرة اللعبة لضمان عدم التكرار
-let board = Array(26).fill(true); // من 1 لـ 25
-
-// مصفوفة القوة (الأرقام التي تفتح فرص فوز أكبر)
-const strategicMoves = [13, 7, 8, 9, 12, 14, 17, 18, 19, 1, 5, 21, 25];
-
-service.on('ready', async () => {
-    console.log(`✅ تم تشغيل الذكاء الاصطناعي: ${service.currentSubscriber.nickname}`);
-    resetGame();
-    await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
+service.on('ready', () => {
+    console.log(`✅ البوت متصل الآن: ${service.currentSubscriber.nickname}`);
+    console.log("👀 جاري مراقبة الرومات للبحث عن جملة الفوز...");
 });
 
 service.on('message', async (message) => {
-    if (!message.isGroup && message.sourceSubscriberId === settings.xoBotId) {
+    // التأكد أن الرسالة داخل روم (مجموعة)
+    if (message.isGroup) {
         
-        const content = message.body || message.content || "";
+        const content = message.body || "";
 
-        // 1. تحديث الذاكرة: إذا رأينا رقم تم لعبه في الرسالة، نحذفه من المتاح
-        const usedNumbers = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g);
-        if (usedNumbers) {
-            // ملاحظة: هذا الجزء يحتاج لدقة، سنعتمد على الأرقام المتاحة التي يرسلها البوت
-        }
-
-        // 2. معالجة دور اللعب
-        if (content.toLowerCase().includes("your turn") || content.includes("دورك")) {
+        // التحقق من وجود النص المطلوب
+        if (content.includes("اكتب {الان}")) {
             
-            // استخراج الأرقام التي يذكر البوت أنها "متاحة" حصراً
-            let available = content.match(/\b([1-9]|1[0-9]|2[0-5])\b/g) || [];
-            
-            // تحويلها لأرقام فريدة
-            available = [...new Set(available)];
+            // استخراج الرقم (الثواني) من نص الرسالة باستخدام Regex
+            // يبحث عن أي أرقام موجودة في النص
+            const match = content.match(/(\d+)/);
+            const seconds = match ? parseInt(match[0]) : 5; // إذا لم يجد رقم سيعتبرها 5 ثوانٍ افتراضياً
 
-            if (available.length > 0) {
-                // اختيار أفضل رقم استراتيجي من المتاح فقط
-                let move = "";
-                
-                // البحث عن أول رقم استراتيجي متاح في قائمة الأولوية
-                for (let best of strategicMoves) {
-                    if (available.includes(best.toString())) {
-                        move = best.toString();
-                        break;
-                    }
-                }
+            console.log(`🎯 تم رصد الطلب في الروم [${message.targetSubscriberId}]`);
+            console.log(`⏳ الانتظار لمدة ${seconds} ثانية...`);
 
-                // إذا لم نجد رقم استراتيجي، نأخذ أول رقم متاح
-                if (!move) move = available[0];
-
-                console.log(`🧠 ذكاء: الأرقام المتاحة المرصودة [${available}]. اخترت الأقوى: ${move}`);
-                
-                setTimeout(async () => {
-                    await service.messaging.sendPrivateMessage(settings.xoBotId, move);
-                }, 2000);
-            }
-        }
-
-        // 3. إعادة ضبط الذاكرة عند انتهاء اللعبة
-        if (content.includes("Winner") || content.includes("فاز") || content.includes("Draw") || content.includes("تعادل")) {
-            resetGame();
+            // تنفيذ الانتظار ثم الإرسال
             setTimeout(async () => {
-                await service.messaging.sendPrivateMessage(settings.xoBotId, settings.startCommand);
-            }, 10000);
+                try {
+                    await service.messaging.sendGroupMessage(message.targetSubscriberId, "الان");
+                    console.log(`🚀 تم إرسال "الان" بنجاح في الوقت المحدد.`);
+                } catch (error) {
+                    console.error("❌ فشل في إرسال الرسالة:", error);
+                }
+            }, seconds * 1000);
         }
     }
 });
-
-function resetGame() {
-    board = Array(26).fill(true);
-    console.log("🔄 تم إعادة تهيئة ذاكرة اللعبة.");
-}
 
 service.login(settings.identity, settings.secret);
