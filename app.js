@@ -6,44 +6,52 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    targetRoomId: 66266 // رقم الروم
+    targetRoomId: 66266
 };
 
 const service = new WOLF();
 
 service.on('ready', () => {
-    console.log(`✅ البوت متصل: ${service.currentSubscriber.nickname}`);
-    console.log(`👀 أراقب الروم: ${settings.targetRoomId} الآن...`);
+    console.log(`✅ متصل باسم: ${service.currentSubscriber.nickname}`);
+    console.log(`🔎 أراقب الروم: ${settings.targetRoomId}`);
 });
 
 service.on('message', async (message) => {
-    // التأكد من أن الرسالة في الروم المطلوب
-    if (message.targetSubscriberId === settings.targetRoomId) {
+    // 1. طباعة المعرفات للتأكد من مطابقة الروم
+    // console.log(`Incoming from: ${message.targetSubscriberId}`); 
+
+    if (parseInt(message.targetSubscriberId) === settings.targetRoomId) {
         
-        // استخراج النص بذكاء (دعم أكثر من صيغة للمكتبة)
-        const content = message.body || message.content || (message.embed && message.embed.title) || "";
-        
-        // عرض ما يراه البوت في الكونسول للتأكد
-        if (content.length > 0) {
-            console.log(`📩 رسالة جديدة: [${content}]`);
+        // 2. محاولة استخراج النص من كل الأماكن الممكنة
+        let content = "";
+
+        if (message.body) content = message.body;
+        else if (message.embed && message.embed.title) content = message.embed.title;
+        else if (message.embed && message.embed.description) content = message.embed.description;
+        else if (message.attachments && message.attachments.length > 0) {
+            // بعض البوتات ترسل النص كمرفق (Attachment)
+            content = JSON.stringify(message.attachments);
         }
 
-        // التحقق من وجود الكلمة المفتاحية (استخدام RegExp لجعلها أكثر مرونة)
-        if (content.includes("اكتب") && content.includes("الان")) {
-            
-            // استخراج الثواني
-            const secondsMatch = content.match(/(\d+)/);
-            const seconds = secondsMatch ? parseInt(secondsMatch[0]) : 5;
+        // تحويل المحتوى لنص عادي وتجاهل التشكيل والهمزات قدر الإمكان
+        const cleanContent = content.toString().toLowerCase();
 
-            console.log(`🎯 تم العثور على المطلوب! الانتظار: ${seconds} ثوانٍ...`);
+        console.log(`📩 نص تم رصده: [${cleanContent}]`);
+
+        // 3. فحص الكلمات المفتاحية
+        if (cleanContent.includes("اكتب") && (cleanContent.includes("الان") || cleanContent.includes("الآن"))) {
+            
+            const match = cleanContent.match(/(\d+)/);
+            const seconds = match ? parseInt(match[1] || match[0]) : 5;
+
+            console.log(`🚀 هدف مرصود! سأرسل بعد ${seconds} ثوانٍ...`);
 
             setTimeout(async () => {
                 try {
-                    // إرسال الكلمة
                     await service.messaging.sendGroupMessage(settings.targetRoomId, "الان");
-                    console.log(`🚀 تم الإرسال بنجاح!`);
-                } catch (err) {
-                    console.error(`❌ خطأ أثناء الإرسال: ${err.message}`);
+                    console.log(`✅ تم الإرسال بنجاح.`);
+                } catch (e) {
+                    console.error(`❌ فشل الإرسال: ${e.message}`);
                 }
             }, seconds * 1000);
         }
