@@ -4,42 +4,38 @@ import axios from 'axios';
 const groupIds = [66266, 117372223344, 11500]; 
 
 async function getGroupDetails() {
-    console.log("🔍 جاري فحص الرومات واستخراج بيانات المالك...\n");
-    console.log("------------------------------------------");
+    console.log("🚀 بدء الفحص المباشر عبر سيرفر البيانات...\n");
 
     for (const id of groupIds) {
-        const url = `https://www.wolf.live/g/${id}`;
+        // استخدام رابط الـ API المباشر للمجموعات
+        const apiUrl = `https://www.wolf.live/api/group/${id}`;
         
         try {
-            const response = await axios.get(url, {
+            const response = await axios.get(apiUrl, {
                 headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0 Safari/537.36' 
-                }
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json'
+                },
+                timeout: 5000
             });
 
-            const html = response.data;
+            const data = response.data;
 
-            // التحقق أولاً من وجود الروم
-            if (html.includes("Channel not found") || html.includes("<title>WOLF</title>")) {
-                console.log(`❌ الروم: ${id} | غير موجود`);
-                continue;
+            // التحقق من أن الاستجابة تحتوي على بيانات مجموعة حقيقية
+            if (data && data.id) {
+                console.log(`------------------------------------------`);
+                console.log(`✅ الروم: ${data.id}`);
+                console.log(`📝 الاسم: ${data.name || "بدون اسم"}`);
+                console.log(`👑 آيدي المالك: ${data.ownerId || "غير معروف"}`);
+                console.log(`👥 الأعضاء: ${data.membersCount || 0}`);
+                console.log(`------------------------------------------`);
+            } else {
+                console.log(`❌ الروم: ${id} | غير موجود (بيانات فارغة)`);
             }
 
-            // استخراج آيدي المالك باستخدام Regex من البيانات المخفية في الصفحة
-            // نبحث عن نمط "ownerId":12345
-            const ownerMatch = html.match(/"ownerId":\s*(\d+)/);
-            const nameMatch = html.match(/"name":\s*"([^"]+)"/);
-
-            const ownerId = ownerMatch ? ownerMatch[1] : "غير معروف";
-            const roomName = nameMatch ? nameMatch[1] : "بدون اسم";
-
-            console.log(`✅ الروم: ${id}`);
-            console.log(`   📝 الاسم: ${roomName}`);
-            console.log(`   👑 آيدي المالك: ${ownerId} ☑️`);
-            console.log("------------------------------------------");
-
         } catch (error) {
-            console.log(`❌ الروم: ${id} | غير موجود أو حدث خطأ في الاتصال`);
+            // إذا كان الخطأ 404 أو 400، فالروم غير موجود
+            console.log(`❌ الروم: ${id} | غير موجود`);
         }
     }
 
